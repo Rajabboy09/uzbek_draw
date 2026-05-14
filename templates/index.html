@@ -2,126 +2,273 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lider Kids - Musobaqa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title></title>
     <style>
-        :root { --success: #28a745; --danger: #dc3545; --primary: #1a73e8; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; text-align: center; margin: 0; padding: 20px; }
-        
-        /* O'yin maydoni */
-        #game-screen, #result-screen { display: none; }
-        #game-screen.active, #result-screen.active { display: block; }
+        :root {
+            --primary: #1a73e8;
+            --success: #28a745;
+            --danger: #dc3545;
+            --gray: #6c757d;
+            --white: #ffffff;
+        }
 
-        .target-word { font-size: 2.2rem; font-weight: bold; color: var(--primary); margin: 10px 0; }
-        #canvas-container { background: white; border: 4px solid #333; border-radius: 15px; display: inline-block; }
-        
-        .timer { font-size: 1.5rem; font-weight: bold; color: var(--danger); }
-        .progress { margin: 10px; font-weight: bold; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
 
-        /* Natijalar panjarasi */
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; padding: 20px; max-width: 900px; margin: 0 auto; }
-        .result-card { background: white; border-radius: 10px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .result-card img { width: 100%; border-radius: 5px; margin-bottom: 5px; }
-        .result-card.correct { border: 5px solid var(--success); }
-        .result-card.wrong { border: 5px solid var(--danger); }
-        
-        button { padding: 12px 30px; font-size: 1.1rem; border: none; border-radius: 25px; cursor: pointer; background: var(--primary); color: white; font-weight: bold; margin-top: 20px; }
+        /* Ekranlarni boshqarish */
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+            min-height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .active-screen {
+            display: flex !important;
+        }
+
+        /* Canvas sozlamalari */
+        #canvas-container {
+            background: var(--white);
+            border: 5px solid #333;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            margin: 15px auto;
+            position: relative;
+            touch-action: none; /* Telefonda ekranni qotiradi */
+        }
+
+        canvas {
+            touch-action: none;
+            cursor: crosshair;
+            display: block;
+        }
+
+        /* O'yin elementlari */
+        .target-word {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 10px 0;
+            text-transform: uppercase;
+        }
+
+        .timer-box {
+            font-size: 1.6rem;
+            color: var(--danger);
+            font-weight: bold;
+            background: #ffebeb;
+            padding: 5px 20px;
+            border-radius: 50px;
+            display: inline-block;
+        }
+
+        /* Natijalar paneli (3x2 format) */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 ta ustun */
+            gap: 12px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            border: 4px solid #eee;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .result-card.correct { border-color: var(--success); background: #f0fff4; }
+        .result-card.wrong { border-color: var(--danger); background: #fff5f5; }
+
+        .result-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .result-card p {
+            margin: 5px 0 0 0;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* Tugmalar */
+        button {
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(26, 115, 232, 0.3);
+        }
+
+        button:active { transform: scale(0.95); }
+
+        .btn-secondary { background: var(--gray); font-size: 1rem; padding: 10px 25px; margin-top: 10px; }
+
+        #ai-guess {
+            font-size: 1.1rem;
+            font-style: italic;
+            color: #555;
+            height: 25px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
     <audio id="bgMusic" src="/static/audio/bg_music.mp3" loop></audio>
 
-    <!-- O'YIN EKRANI -->
-    <div id="game-screen" class="active">
-        <h1>Musobaqa boshlandi!</h1>
-        <div class="progress">Savol: <span id="current-num">1</span> / 5</div>
-        <div class="timer">Vaqt: <span id="timer">20</span>s</div>
+    <!-- 1. START EKRANI -->
+    <div id="start-screen" class="screen active-screen">
+        <h1 style="font-size: 3.5rem; color: var(--primary); margin-bottom: 10px;">Quvnoq qalam</h1>
+        <p style="font-size: 1.2rem; color: #666; margin-bottom: 30px;">6 ta rasmni vaqt tugashidan oldin chizib tugating!</p>
+        <button onclick="startGame()">Boshlash</button>
+    </div>
+
+    <!-- 2. O'YIN EKRANI -->
+    <div id="game-screen" class="screen">
+        <div class="timer-box">Vaqt: <span id="timer">30</span>s</div>
+        <div style="margin-top: 10px; font-weight: bold;">Rasm: <span id="current-step">1</span> / 6</div>
         <div class="target-word" id="target">...</div>
         
         <div id="canvas-container">
-            <canvas id="canvas" width="350" height="350"></canvas>
+            <canvas id="canvas" width="340" height="340"></canvas>
         </div>
-        
-        <div id="ai-status" style="margin-top:10px; font-style:italic;">Menimcha, bu...</div>
-        <button onclick="clearCanvas()" style="background:#6c757d">Tozalash</button>
+
+        <div id="ai-guess">Chizishni boshlang...</div>
+        <button class="btn-secondary" onclick="clearCanvas()">O'chirish</button>
     </div>
 
-    <!-- NATIJALAR EKRANI -->
-    <div id="result-screen">
-        <h1>O'yin tugadi!</h1>
-        <h2 id="final-score">Ball: 0 / 5</h2>
+    <!-- 3. NATIJALAR EKRANI -->
+    <div id="result-screen" class="screen">
+        <h1 style="margin-bottom: 5px;">Ajoyib!</h1>
+        <h2 id="final-score" style="color: var(--success);">Ball: 0 / 6</h2>
         <div class="results-grid" id="results-container"></div>
-        <button onclick="resetGame()">Qayta o'ynash (Keyingi ishtirokchi)</button>
+        <button onclick="location.reload()" style="margin-top: 30px;">Yana o'ynash</button>
+    </div>
+    <div style="position: absolute; top: 20px; right: 20px;">
+    <button id="mute-btn" onclick="toggleMusic()" style="padding: 10px; background: var(--gray); font-size: 1rem;">
+        🔊 Ovoz: ON
+    </button>
     </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        // O'zingizda qolgan 46 ta kategoriyani shu yerga yozing
-        const allLabels = ["Olma", "Mashina", "Uy", "Quyosh", "Daraxt", "Velosiped", "Yulduz"]; 
-        
+        const labels = ["Olma", "Mashina", "Uy", "Quyosh", "Daraxt", "Velosiped", "Yulduz", "Banan", "Soat", "Bulut", "Eshik", "Ko'z", "Baliq", "Gul", "Gitara", "Shlyapa", "Barg", "Oy", "Tog'", "Shim", "Stol", "Mushuk", "It", "Qoshiq", "Krovat", "Kitob", "Kapalak", "Tort", "Kursi", "Piyola", "Quloq", "Oyoq", "Qo'l", "Muzqaymoq", "Kalit", "Burun", "Nok", "Qalam", "Quyon", "Kamalak", "Ilon", "Qorbola", "Paypoq", "Soyabon", "Tarvuz", "G'ildirak"];
+
         let gameTasks = [];
         let currentIndex = 0;
-        let timer = 20;
         let score = 0;
-        let interval;
-        let savedResults = []; // Rasmlarni saqlash uchun
-        let isCorrectInRound = false;
-
-        // Chizish sozlamalari
+        let timer = 30;
+        let timerInterval;
         let drawing = false;
-        ctx.lineWidth = 12;
+        let savedResults = [];
+        let solvedInRound = false;
+
+        // Canvas sozlamalari
+        ctx.lineWidth = 10;
         ctx.lineCap = 'round';
         ctx.strokeStyle = 'black';
 
         function init() {
-            canvas.addEventListener('mousedown', () => { drawing = true; playMusic(); });
-            canvas.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); autoPredict(); });
+            // Kompyuter (Mouse)
+            canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
-            
-            resetGame();
+            window.addEventListener('mouseup', stopDrawing);
+
+            // Telefon/Planshet (Touch)
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startDrawing(e.touches[0]);
+            }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                draw(e.touches[0]);
+            }, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing);
         }
 
-        function resetGame() {
-            gameTasks = allLabels.sort(() => 0.5 - Math.random()).slice(0, 5);
-            currentIndex = 0;
-            score = 0;
-            savedResults = [];
+        function startGame() {
+            document.getElementById('start-screen').classList.remove('active-screen');
+            document.getElementById('game-screen').classList.add('active-screen');
+            document.getElementById('bgMusic').play().catch(e => console.log("Music play blocked"));
             
-            document.getElementById('result-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.add('active');
-            
+            // Tasodifiy 6 ta elementni takrorlanmas qilib tanlash
+            gameTasks = labels.sort(() => 0.5 - Math.random()).slice(0, 6);
             startRound();
         }
 
         function startRound() {
-            isCorrectInRound = false;
-            timer = 20;
-            document.getElementById('current-num').innerText = currentIndex + 1;
+            solvedInRound = false;
+            timer = 30;
+            document.getElementById('timer').innerText = timer;
+            document.getElementById('current-step').innerText = currentIndex + 1;
             document.getElementById('target').innerText = gameTasks[currentIndex];
-            document.getElementById('ai-status').innerText = "Menimcha, bu...";
+            document.getElementById('ai-guess').innerText = "O'ylayapman...";
             clearCanvas();
             
-            clearInterval(interval);
-            interval = setInterval(tick, 1000);
+            clearInterval(timerInterval);
+            timerInterval = setInterval(tick, 1000);
         }
 
         function tick() {
             timer--;
             document.getElementById('timer').innerText = timer;
-            if (timer <= 0) {
-                finishRound(false);
-            }
+            if (timer <= 0) finishRound(false);
+        }
+
+        // Chizish funksiyalari
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function startDrawing(e) {
+            drawing = true;
+            const p = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
         }
 
         function draw(e) {
             if (!drawing) return;
-            const rect = canvas.getBoundingClientRect();
-            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            const p = getPos(e);
+            ctx.lineTo(p.x, p.y);
             ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function stopDrawing() {
+            if (drawing) {
+                drawing = false;
+                autoPredict(); // Har bir chiziqni uzganda AI taxmin qiladi
+            }
         }
 
         function clearCanvas() {
@@ -130,89 +277,74 @@
         }
 
         async function autoPredict() {
-            if (isCorrectInRound) return;
+            if (solvedInRound) return;
+            
             const dataUrl = canvas.toDataURL('image/png');
             const response = await fetch('/predict', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({image: dataUrl})
+                body: JSON.stringify({ image: dataUrl })
             });
-            const result = await response.json();
-            document.getElementById('ai-status').innerText = "Menimcha, bu: " + result.label;
+            const data = await response.json();
+            
+            document.getElementById('ai-guess').innerText = "Menimcha, bu: " + data.label;
 
-            if (result.label === gameTasks[currentIndex]) {
-                isCorrectInRound = true;
+            if (data.label === gameTasks[currentIndex]) {
+                solvedInRound = true;
                 score++;
-                finishRound(true);
+                setTimeout(() => finishRound(true), 600);
             }
         }
 
         function finishRound(correct) {
-            clearInterval(interval);
-            clearInterval(predictInterval);
-            // Rasmni saqlab qo'yamiz
+            clearInterval(timerInterval);
+            
+            // Rasmni saqlab qo'yish
             savedResults.push({
                 img: canvas.toDataURL(),
-                label: gameTasks[currentIndex],
-                status: correct ? 'correct' : 'wrong'
+                word: gameTasks[currentIndex],
+                res: correct ? 'correct' : 'wrong'
             });
 
             currentIndex++;
-            if (currentIndex < 5) {
-                setTimeout(startRound, 1000); // 1 soniya kutib keyingisiga o'tadi
+            if (currentIndex < 6) {
+                startRound();
             } else {
-                showFinalResults();
+                showResults();
             }
         }
 
-        function showFinalResults() {
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('result-screen').classList.add('active');
-            document.getElementById('final-score').innerText = `Ball: ${score} / 5`;
+        function showResults() {
+            document.getElementById('game-screen').classList.remove('active-screen');
+            document.getElementById('result-screen').classList.add('active-screen');
+            document.getElementById('final-score').innerText = `Ball: ${score} / 6`;
             
             const container = document.getElementById('results-container');
-            container.innerHTML = "";
-            
-            savedResults.forEach(res => {
+            savedResults.forEach(r => {
                 const card = document.createElement('div');
-                card.className = `result-card ${res.status}`;
-                card.innerHTML = `
-                    <img src="${res.img}">
-                    <div style="font-weight:bold">${res.label}</div>
-                    <div>${res.status === 'correct' ? '✅ Topildi' : '❌ Topilmadi'}</div>
-                `;
+                card.className = `result-card ${r.res}`;
+                card.innerHTML = `<img src="${r.img}"><p>${r.word}</p>`;
                 container.appendChild(card);
             });
         }
 
-        function playMusic() {
-            const m = document.getElementById('bgMusic');
-            if(m.paused) m.play();
-        }
-        let predictInterval; // Yangi o'zgaruvchi
-
-        function startRound() {
-            isCorrectInRound = false;
-            timer = 20;
-            document.getElementById('current-num').innerText = currentIndex + 1;
-            document.getElementById('target').innerText = gameTasks[currentIndex];
-            document.getElementById('ai-status').innerText = "Menimcha, bu...";
-            clearCanvas();
-            
-            clearInterval(interval);
-            clearInterval(predictInterval); // Eskisini tozalaymiz
-            
-            interval = setInterval(tick, 1000);
-            
-            // Har 1.5 soniyada AI o'zi mustaqil tekshirib turadi
-            predictInterval = setInterval(() => {
-                if (gameActive && !drawing) { // Bola chizishdan to'xtab turgan qisqa soniyada tekshiradi
-                    autoPredict();
-                }
-            }, 1500);
-        }
-
         init();
+        let isMuted = false;
+        const bgMusic = document.getElementById('bgMusic');
+        const muteBtn = document.getElementById('mute-btn');
+
+        function toggleMusic() {
+            if (isMuted) {
+                bgMusic.play();
+                muteBtn.innerText = "🔊 Ovoz: ON";
+                muteBtn.style.background = "var(--gray)";
+            } else {
+                bgMusic.pause();
+                muteBtn.innerText = "      Ovoz: OFF";
+                muteBtn.style.background = "#555";
+            }
+            isMuted = !isMuted;
+        }
     </script>
 </body>
 </html>
